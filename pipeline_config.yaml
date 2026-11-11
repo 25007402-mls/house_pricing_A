@@ -29,3 +29,8 @@ MODEL_FEATURES:
 - GarageType
 - BsmtFinType1
 - HeatingQC
+MLFLOW:
+  DB_FILE: mlflow.db
+  ARTIFACTS_DIR: mlartifacts
+  EXPERIMENT_NAME: house_pricing_A
+  REGISTERED_MODEL_NAME: house_pricing_A

@@ -5,6 +5,11 @@
 # Modelos entrenados: se regeneran con los notebooks 2.0 y 3.0
 /models/*.joblib
 
+# MLflow: base de datos de tracking/registro y artefactos locales (se regeneran con los notebooks 3.0 y 4.0)
+/mlflow.db
+/mlartifacts/
+mlruns/
+
 # Mac OS-specific storage files
 .DS_Store
 
