@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Validación de modelos · House Pricing</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7;
+    --surface-1: #fcfcfb;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #898781;
+    --grid: #e1e0d9;
+    --axis: #c3c2b7;
+    --border: rgba(11, 11, 11, 0.10);
+    --series-1: #2a78d6;
+    --series-2: #eb6834;
+    --series-3: #1baf7a;
+    --good: #0ca30c;
+    --good-text: #006300;
+    --critical: #d03b3b;
+    --muted-mark: #c3c2b7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --page: #0d0d0d;
+      --surface-1: #1a1a19;
+      --text-primary: #f0efec;
+      --text-secondary: #c3c2b7;
+      --text-muted: #898781;
+      --grid: #2c2c2a;
+      --axis: #383835;
+      --border: rgba(255, 255, 255, 0.10);
+      --series-1: #3987e5;
+      --series-2: #d95926;
+      --series-3: #199e70;
+      --good: #0ca30c;
+      --good-text: #0ca30c;
+      --critical: #d03b3b;
+      --muted-mark: #52514e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  main { max-width: 1240px; margin: 0 auto; padding: 32px 24px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; font-weight: 650; }
+  h2 { font-size: 19px; margin: 40px 0 4px; font-weight: 600; }
+  h3 { font-size: 15px; margin: 0 0 2px; font-weight: 600; }
+  p { margin: 4px 0 12px; }
+  .lead { color: var(--text-secondary); max-width: 860px; }
+  .meta { color: var(--text-muted); font-size: 12px; }
+  .card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 20px; }
+  .tile .label { color: var(--text-secondary); font-size: 12px; }
+  .tile .value { font-size: 26px; font-weight: 600; margin-top: 2px; }
+  .tile .sub { color: var(--text-muted); font-size: 12px; }
+  .grid-2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(520px, 1fr)); gap: 12px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
+  .chart { width: 100%; }
+  .chart svg { display: block; width: 100%; overflow: visible; }
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; margin: 4px 0 8px; color: var(--text-secondary); font-size: 12px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+  .swatch.box { height: 10px; width: 10px; border-radius: 2px; }
+  .badge { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); }
+  .badge.good { color: var(--good-text); }
+  .badge.bad { color: var(--critical); }
+  .card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .discarded { opacity: 0.6; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--grid); font-variant-numeric: tabular-nums; }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--text-secondary); font-weight: 600; }
+  td.left, th.left { text-align: left; }
+  .table-wrap { overflow-x: auto; }
+  details { margin-top: 8px; }
+  summary { cursor: pointer; color: var(--text-secondary); font-size: 12px; }
+  .note { color: var(--text-secondary); font-size: 12px; }
+  #tooltip {
+    position: fixed; pointer-events: none; z-index: 10;
+    background: var(--surface-1); color: var(--text-primary);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 10px; font-size: 12px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    max-width: 320px;
+  }
+  #tooltip .t-title { font-weight: 600; margin-bottom: 2px; }
+  #tooltip .t-row { display: flex; align-items: center; gap: 6px; color: var(--text-secondary); }
+  #tooltip .t-row b { color: var(--text-primary); font-weight: 600; margin-left: auto; padding-left: 12px; font-variant-numeric: tabular-nums; }
+  svg text { font-family: inherit; }
+  .tick { fill: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .axis-title { fill: var(--text-secondary); font-size: 11px; }
+  .row-label { fill: var(--text-secondary); font-size: 12px; }
+  .val-label { fill: var(--text-secondary); font-size: 12px; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Validación de modelos · Predicción de <code>SalePrice</code></h1>
+  <p class="lead">Este reporte muestra cómo se entrenó cada modelo del torneo, compara sus métricas en el conjunto de validación y revisa si sus predicciones sobre los datos de test son coherentes con los precios reales de entrenamiento y con el pipeline de inferencia del modelo ganador. Los modelos cuya salida en test no es coherente se marcan como <b>descartados</b>.</p>
+  <p class="meta" id="meta"></p>
+
+  <div class="tiles" id="tiles"></div>
+
+  <h2>1. Comparación de métricas en validación</h2>
+  <p class="lead">Error de cada modelo sobre el 20 % de validación, que no se usó para entrenar ni para elegir hiperparámetros. El <b>RMSE real</b> es el error típico en dólares. El <b>NRMSE</b> es ese error dividido entre el rango de precios de entrenamiento. Las barras grises corresponden a modelos descartados por la revisión de coherencia.</p>
+  <div class="card">
+    <h3>RMSE real en validación (dólares)</h3>
+    <div class="chart" id="chart-rmse"></div>
+    <details><summary>Ver tabla completa de métricas</summary><div class="table-wrap" id="table-metrics"></div></details>
+  </div>
+
+  <h2>2. Sobreajuste: error en train, CV y validación</h2>
+  <p class="lead">RMSE en escala logarítmica, la escala en la que aprenden los modelos, en tres conjuntos: los folds de entrenamiento de la validación cruzada (<b>Train</b>), los folds de evaluación (<b>CV</b>) y el 20 % reservado (<b>Validación</b>). Si la barra de Train es mucho más corta que las otras dos, el modelo memoriza en lugar de generalizar. Si CV y Validación son parecidas, la estimación de la validación cruzada es confiable.</p>
+  <div class="card">
+    <div class="legend" id="legend-overfit"></div>
+    <div class="chart" id="chart-overfit"></div>
+    <details><summary>Ver tabla</summary><div class="table-wrap" id="table-overfit"></div></details>
+  </div>
+
+  <h2>3. Cómo se entrenó cada modelo</h2>
+  <p class="lead">Para cada modelo se muestran dos cosas. Arriba, cada configuración de hiperparámetros probada por <code>GridSearchCV</code>: el punto es su RMSE promedio en los 10 folds de CV y la línea horizontal abarca ± 1 desviación estándar. La configuración elegida aparece en color. Abajo, el error en cada uno de los 10 folds de la configuración elegida: si los puntos están muy dispersos, el desempeño del modelo depende mucho de qué viviendas le toquen.</p>
+  <div class="grid-2" id="training-grid"></div>
+
+  <h2>4. Precio real vs. predicho en validación</h2>
+  <p class="lead">Cada punto es una vivienda de validación. La línea diagonal es la predicción perfecta: cuanto más cerca de ella estén los puntos, mejor es el modelo. Todos los paneles usan la misma escala, para poder compararlos directamente.</p>
+  <div class="grid-3" id="scatter-grid"></div>
+
+  <h2>5. Forma de la salida en test vs. pipeline de inferencia</h2>
+  <p class="lead">Cada modelo se re-entrenó con el 100 % de <code>train.csv</code>, igual que el ganador, y predijo los datos crudos de test. Cada panel compara la densidad de sus predicciones con la del <b>pipeline de inferencia</b> (modelo ganador) y con los <b>precios reales de train</b>. Una forma muy distinta indica que el modelo produce precios poco realistas.</p>
+  <div class="legend" id="legend-density"></div>
+  <div class="grid-3" id="density-grid"></div>
+
+  <h2>6. Revisión de coherencia</h2>
+  <p class="lead" id="rules-text"></p>
+  <div class="card"><div class="table-wrap" id="table-rules"></div></div>
+</main>
+<div id="tooltip" hidden></div>
+
+<script>
+const DATA = /*__DATA__*/null;
+
+const SVGNS = "http://www.w3.org/2000/svg";
+const money = v => "$" + Math.round(v).toLocaleString("es-MX");
+const kmoney = v => v >= 1000 ? "$" + Math.round(v / 1000).toLocaleString("es-MX") + "k" : "$" + Math.round(v);
+const f4 = v => v.toFixed(4);
+const pct = v => v.toFixed(1) + " %";
+const cleanParam = s => s.replace(/model__regressor__|model__/g, "");
+
+function el(tag, attrs = {}, parent) {
+  const e = document.createElementNS(SVGNS, tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "style") Object.assign(e.style, v); else e.setAttribute(k, v);
+  }
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function scale(d0, d1, r0, r1) { return v => r0 + (v - d0) / (d1 - d0) * (r1 - r0); }
+function niceTicks(min, max, count = 5) {
+  const step0 = (max - min) / count;
+  const mag = 10 ** Math.floor(Math.log10(step0));
+  const err = step0 / mag;
+  const step = (err >= 7.5 ? 10 : err >= 3.5 ? 5 : err >= 1.5 ? 2 : 1) * mag;
+  const ticks = [];
+  for (let v = Math.ceil(min / step) * step; v <= max + step * 1e-9; v += step) ticks.push(+v.toFixed(10));
+  return ticks;
+}
+function newSvg(container, height) {
+  const width = container.clientWidth;
+  const svg = el("svg", { viewBox: `0 0 ${width} ${height}`, height });
+  container.replaceChildren(svg);
+  return { svg, width };
+}
+function roundedBar(x0, x1, y, h, r = 4) {
+  const w = x1 - x0;
+  if (w <= 0) return "";
+  const rr = Math.min(r, w, h / 2);
+  return `M${x0},${y}H${x1 - rr}Q${x1},${y} ${x1},${y + rr}V${y + h - rr}Q${x1},${y + h} ${x1 - rr},${y + h}H${x0}Z`;
+}
+function xAxis(svg, ticks, x, y0, y1, fmt, title, width) {
+  for (const t of ticks) {
+    el("line", { x1: x(t), x2: x(t), y1: y0, y2: y1, style: { stroke: "var(--grid)", strokeWidth: 1 } }, svg);
+    el("text", { x: x(t), y: y1 + 14, "text-anchor": "middle", class: "tick" }, svg).textContent = fmt(t);
+  }
+  if (title) el("text", { x: width / 2, y: y1 + 32, "text-anchor": "middle", class: "axis-title" }, svg).textContent = title;
+}
+
+// Tooltip compartido
+const tip = document.getElementById("tooltip");
+function showTip(evt, title, rows) {
+  tip.innerHTML = `<div class="t-title">${title}</div>` + rows.map(([sw, label, val]) =>
+    `<div class="t-row">${sw ? `<span class="swatch box" style="background:${sw}"></span>` : ""}${label}<b>${val}</b></div>`).join("");
+  tip.hidden = false;
+  const pad = 14, r = tip.getBoundingClientRect();
+  let left = evt.clientX + pad, top = evt.clientY + pad;
+  if (left + r.width > innerWidth) left = evt.clientX - r.width - pad;
+  if (top + r.height > innerHeight) top = evt.clientY - r.height - pad;
+  tip.style.left = left + "px"; tip.style.top = top + "px";
+}
+function hideTip() { tip.hidden = true; }
+
+function legend(container, items) {
+  container.innerHTML = items.map(([color, label, box]) =>
+    `<span><span class="swatch${box ? " box" : ""}" style="background:${color}"></span>${label}</span>`).join("");
+}
+function table(container, headers, rows) {
+  container.innerHTML = `<table><thead><tr>${headers.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>` +
+    rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join("")}</tr>`).join("") + "</tbody></table>";
+}
+const badge = ok => ok
+  ? `<span class="badge good">✓ Coherente</span>`
+  : `<span class="badge bad">✕ Descartado</span>`;
+const check = ok => ok ? `<span style="color:var(--good-text)">✓ Cumple</span>` : `<span style="color:var(--critical)">✕ No cumple</span>`;
+
+const M = DATA.models;
+const S1 = "var(--series-1)", S2 = "var(--series-2)", S3 = "var(--series-3)";
+
+// ---------- Encabezado y tiles ----------
+function renderHeader() {
+  const m = DATA.meta;
+  document.getElementById("meta").textContent =
+    `Generado: ${m.generated} · Entrenamiento: ${m.n_train} viviendas · Validación: ${m.n_val} · Test: ${m.n_test} · CV: ${m.n_folds} folds`;
+  const winner = M.find(d => d.name === m.winner);
+  const coherent = M.filter(d => d.coherence.coherent).length;
+  const tiles = [
+    ["Modelo ganador", m.winner, "Menor RMSE real en validación"],
+    ["RMSE real del ganador", money(winner.rmse_real), "Error típico por vivienda"],
+    ["NRMSE del ganador", f4(winner.nrmse), `Rango de precios en train: ${money(m.price_range)}`],
+    ["Modelos coherentes en test", `${coherent} de ${M.length}`, coherent < M.length ? `${M.length - coherent} descartado(s)` : "Ninguno descartado"],
+  ];
+  document.getElementById("tiles").innerHTML = tiles.map(([l, v, s]) =>
+    `<div class="card tile"><div class="label">${l}</div><div class="value">${v}</div><div class="sub">${s}</div></div>`).join("");
+}
+
+// ---------- 1. RMSE real ----------
+function renderRmse() {
+  const box = document.getElementById("chart-rmse");
+  const rows = [...M].sort((a, b) => a.rmse_real - b.rmse_real);
+  const barH = 22, gap = 12, top = 8, left = 130, right = 150, axisBand = 40;
+  const h = top + rows.length * (barH + gap) + axisBand;
+  const { svg, width } = newSvg(box, h);
+  const max = Math.max(...rows.map(d => d.rmse_real)) * 1.05;
+  const x = scale(0, max, left, width - right);
+  const plotBottom = top + rows.length * (barH + gap) - gap / 2;
+  xAxis(svg, niceTicks(0, max, 5), x, top, plotBottom, kmoney, "RMSE real (dólares)", width);
+  rows.forEach((d, i) => {
+    const y = top + i * (barH + gap);
+    const color = d.coherence.coherent ? S1 : "var(--muted-mark)";
+    el("text", { x: left - 10, y: y + barH / 2 + 4, "text-anchor": "end", class: "row-label" }, svg).textContent = d.name;
+    el("path", { d: roundedBar(x(0), x(d.rmse_real), y, barH), style: { fill: color } }, svg);
+    const lbl = `${money(d.rmse_real)} · NRMSE ${f4(d.nrmse)}${d.coherence.coherent ? "" : " · descartado"}`;
+    el("text", { x: x(d.rmse_real) + 8, y: y + barH / 2 + 4, class: "val-label" }, svg).textContent = lbl;
+    const hit = el("rect", { x: 0, y: y - gap / 2, width, height: barH + gap, style: { fill: "transparent" } }, svg);
+    hit.addEventListener("mousemove", e => showTip(e, d.name, [
+      [null, "RMSE real", money(d.rmse_real)], [null, "NRMSE", f4(d.nrmse)],
+      [null, "Estado en test", d.coherence.coherent ? "Coherente" : "Descartado"]]));
+    hit.addEventListener("mouseleave", hideTip);
+  });
+  el("line", { x1: x(0), x2: x(0), y1: top - 4, y2: plotBottom, style: { stroke: "var(--axis)", strokeWidth: 1 } }, svg);
+
+  table(document.getElementById("table-metrics"),
+    ["Modelo", "Familia", "RMSE real", "NRMSE", "RMSE log train", "RMSE log CV", "RMSE log val.", "Brecha train→CV", "Estado en test", "Mejores parámetros"],
+    rows.map(d => [d.name, d.family, money(d.rmse_real), f4(d.nrmse), f4(d.rmse_log_train), f4(d.rmse_log_cv),
+      f4(d.rmse_log_val), pct(d.gap_pct), d.coherence.coherent ? "Coherente" : "Descartado", cleanParam(d.best_params)]));
+  document.querySelectorAll("#table-metrics td:last-child").forEach(td => td.classList.add("left"));
+}
+
+// ---------- 2. Sobreajuste ----------
+function renderOverfit() {
+  const series = [["rmse_log_train", "Train", S1], ["rmse_log_cv", "CV", S2], ["rmse_log_val", "Validación", S3]];
+  legend(document.getElementById("legend-overfit"), series.map(([, l, c]) => [c, l, true]));
+  const box = document.getElementById("chart-overfit");
+  const rows = [...M].sort((a, b) => a.rmse_real - b.rmse_real);
+  const barH = 9, inner = 2, groupGap = 18, top = 6, left = 130, right = 60, axisBand = 40;
+  const groupH = series.length * barH + (series.length - 1) * inner;
+  const h = top + rows.length * (groupH + groupGap) + axisBand;
+  const { svg, width } = newSvg(box, h);
+  const max = Math.max(...rows.flatMap(d => series.map(([k]) => d[k]))) * 1.08;
+  const x = scale(0, max, left, width - right);
+  const plotBottom = top + rows.length * (groupH + groupGap) - groupGap / 2;
+  xAxis(svg, niceTicks(0, max, 6), x, top, plotBottom, v => v.toFixed(2), "RMSE (escala log)", width);
+  rows.forEach((d, i) => {
+    const y0 = top + i * (groupH + groupGap);
+    el("text", { x: left - 10, y: y0 + groupH / 2 + 4, "text-anchor": "end", class: "row-label" }, svg).textContent = d.name;
+    series.forEach(([k, , c], j) => {
+      el("path", { d: roundedBar(x(0), x(d[k]), y0 + j * (barH + inner), barH, 3), style: { fill: c } }, svg);
+    });
+    el("text", { x: x(Math.max(...series.map(([k]) => d[k]))) + 8, y: y0 + groupH / 2 + 4, class: "val-label" }, svg)
+      .textContent = `brecha ${pct(d.gap_pct)}`;
+    const hit = el("rect", { x: 0, y: y0 - groupGap / 2, width, height: groupH + groupGap, style: { fill: "transparent" } }, svg);
+    hit.addEventListener("mousemove", e => showTip(e, d.name,
+      [...series.map(([k, l, c]) => [c, l, f4(d[k])]), [null, "Brecha train → CV", pct(d.gap_pct)]]));
+    hit.addEventListener("mouseleave", hideTip);
+  });
+  el("line", { x1: x(0), x2: x(0), y1: top - 4, y2: plotBottom, style: { stroke: "var(--axis)", strokeWidth: 1 } }, svg);
+  table(document.getElementById("table-overfit"), ["Modelo", "Train", "CV", "Validación", "Brecha train→CV"],
+    rows.map(d => [d.name, f4(d.rmse_log_train), f4(d.rmse_log_cv), f4(d.rmse_log_val), pct(d.gap_pct)]));
+}
+
+// ---------- 3. Entrenamiento por modelo ----------
+function renderTraining() {
+  const grid = document.getElementById("training-grid");
+  grid.innerHTML = "";
+  for (const d of M) {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `<div class="card-head"><h3>${d.name}</h3>${badge(d.coherence.coherent)}</div>
+      <p class="note">${d.family} · ${d.configs.length} configuraciones × ${DATA.meta.n_folds} folds · elegida: ${cleanParam(d.best_params)}</p>
+      <div class="chart cfg"></div><div class="chart folds"></div>
+      <details><summary>Ver tabla de configuraciones</summary><div class="table-wrap tbl"></div></details>`;
+    grid.appendChild(card);
+
+    // Configuraciones: punto = media CV, línea = ± 1 desviación
+    const cfgBox = card.querySelector(".cfg");
+    const cfgs = [...d.configs].sort((a, b) => a.mean - b.mean);
+    const rowH = 20, top = 6, right = 16, axisBand = 40;
+    const h = top + cfgs.length * rowH + axisBand;
+    const { svg, width } = newSvg(cfgBox, h);
+    // Margen izquierdo según la etiqueta más larga (≈ 6.3 px por carácter a 11 px), con tope del 60 % del ancho
+    const longest = Math.max(...cfgs.map(c => cleanParam(c.params).length), "Folds de la config. elegida".length);
+    const left = Math.min(longest * 6.3 + 16, width * 0.6);
+    const lo = Math.min(...cfgs.map(c => c.mean - c.std)), hi = Math.max(...cfgs.map(c => c.mean + c.std));
+    const pad = (hi - lo) * 0.08;
+    const x = scale(lo - pad, hi + pad, left, width - right);
+    const plotBottom = top + cfgs.length * rowH;
+    xAxis(svg, niceTicks(lo - pad, hi + pad, 4), x, top, plotBottom, v => v.toFixed(3), "RMSE CV (escala log) · media ± 1 desv.", width);
+    cfgs.forEach((c, i) => {
+      const y = top + i * rowH + rowH / 2;
+      const best = c.rank === 1;
+      const color = best ? S1 : "var(--text-muted)";
+      el("text", { x: left - 8, y: y + 4, "text-anchor": "end", class: "row-label", style: { fontSize: "11px", fontWeight: best ? 600 : 400 } }, svg)
+        .textContent = cleanParam(c.params);
+      el("line", { x1: x(c.mean - c.std), x2: x(c.mean + c.std), y1: y, y2: y, style: { stroke: color, strokeWidth: 2, strokeLinecap: "round" } }, svg);
+      el("circle", { cx: x(c.mean), cy: y, r: best ? 5 : 4, style: { fill: color, stroke: "var(--surface-1)", strokeWidth: 2 } }, svg);
+      const hit = el("rect", { x: 0, y: y - rowH / 2, width, height: rowH, style: { fill: "transparent" } }, svg);
+      hit.addEventListener("mousemove", e => showTip(e, cleanParam(c.params), [
+        [null, "RMSE CV media", f4(c.mean)], [null, "Desviación entre folds", f4(c.std)],
+        [null, "RMSE train media", f4(c.mean_train)], [null, "Ranking", `${c.rank} de ${cfgs.length}`]]));
+      hit.addEventListener("mouseleave", hideTip);
+    });
+
+    // Folds de la configuración elegida
+    const foldBox = card.querySelector(".folds");
+    const fh = 78;
+    const fs = newSvg(foldBox, fh);
+    const fl = left, fr = 16, fy = 22;
+    const fmin = Math.min(...d.fold_scores), fmax = Math.max(...d.fold_scores);
+    const fpad = (fmax - fmin) * 0.1 || 0.01;
+    const fx = scale(fmin - fpad, fmax + fpad, fl, fs.width - fr);
+    el("text", { x: fl - 8, y: fy + 4, "text-anchor": "end", class: "row-label", style: { fontSize: "11px" } }, fs.svg).textContent = "Folds de la config. elegida";
+    xAxis(fs.svg, niceTicks(fmin - fpad, fmax + fpad, 4), fx, 8, fy + 12, v => v.toFixed(3), "", fs.width);
+    const mean = d.fold_scores.reduce((a, b) => a + b, 0) / d.fold_scores.length;
+    el("line", { x1: fx(mean), x2: fx(mean), y1: fy - 11, y2: fy + 11, style: { stroke: "var(--text-secondary)", strokeWidth: 2 } }, fs.svg);
+    el("text", { x: fx(mean), y: fy - 14, "text-anchor": "middle", class: "tick" }, fs.svg).textContent = `media ${mean.toFixed(3)}`;
+    d.fold_scores.forEach((v, k) => {
+      el("circle", { cx: fx(v), cy: fy, r: 5, style: { fill: S1, stroke: "var(--surface-1)", strokeWidth: 2 } }, fs.svg);
+      const hit = el("circle", { cx: fx(v), cy: fy, r: 12, style: { fill: "transparent" } }, fs.svg);
+      hit.addEventListener("mousemove", e => showTip(e, `Fold ${k + 1}`, [[S1, "RMSE (log)", f4(v)]]));
+      hit.addEventListener("mouseleave", hideTip);
+    });
+
+    table(card.querySelector(".tbl"), ["Configuración", "RMSE CV media", "Desv.", "RMSE train", "Ranking"],
+      cfgs.map(c => [cleanParam(c.params), f4(c.mean), f4(c.std), f4(c.mean_train), c.rank]));
+  }
+}
+
+// ---------- 4. Real vs predicho en validación ----------
+function renderScatter() {
+  const grid = document.getElementById("scatter-grid");
+  grid.innerHTML = "";
+  const all = M.flatMap(d => d.val_scatter.flat());
+  const lo = 0, hi = Math.max(...all) * 1.03;
+  for (const d of [...M].sort((a, b) => a.rmse_real - b.rmse_real)) {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `<div class="card-head"><h3>${d.name}</h3><span class="note">RMSE ${money(d.rmse_real)}</span></div><div class="chart"></div>`;
+    grid.appendChild(card);
+    const box = card.querySelector(".chart");
+    const left = 52, right = 12, top = 10, axisBand = 40;
+    const w = box.clientWidth, plotH = Math.min(300, w - left - right);
+    const { svg, width } = newSvg(box, top + plotH + axisBand);
+    const x = scale(lo, hi, left, width - right), y = scale(lo, hi, top + plotH, top);
+    const ticks = niceTicks(lo, hi, 4);
+    xAxis(svg, ticks, x, top, top + plotH, kmoney, "Precio real", width);
+    for (const t of ticks) {
+      el("line", { x1: left, x2: width - right, y1: y(t), y2: y(t), style: { stroke: "var(--grid)", strokeWidth: 1 } }, svg);
+      el("text", { x: left - 6, y: y(t) + 4, "text-anchor": "end", class: "tick" }, svg).textContent = kmoney(t);
+    }
+    el("text", { x: 12, y: top + plotH / 2, transform: `rotate(-90 12 ${top + plotH / 2})`, "text-anchor": "middle", class: "axis-title" }, svg).textContent = "Precio predicho";
+    el("line", { x1: x(lo), y1: y(lo), x2: x(hi), y2: y(hi), style: { stroke: "var(--text-muted)", strokeWidth: 1.5, strokeDasharray: "5 4" } }, svg);
+    const pts = d.val_scatter.map(([r, p]) => [x(r), y(p), r, p]);
+    for (const [px, py] of pts) el("circle", { cx: px, cy: py, r: 3, style: { fill: S1, fillOpacity: 0.55 } }, svg);
+    const ring = el("circle", { r: 6, style: { fill: "none", stroke: "var(--text-primary)", strokeWidth: 2, display: "none" } }, svg);
+    const overlay = el("rect", { x: left, y: top, width: width - left - right, height: plotH, style: { fill: "transparent" } }, svg);
+    overlay.addEventListener("mousemove", e => {
+      const b = svg.getBoundingClientRect(), mx = (e.clientX - b.left) * (width / b.width), my = (e.clientY - b.top) * ((top + plotH + axisBand) / b.height);
+      let best = null, bd = Infinity;
+      for (const p of pts) { const dd = (p[0] - mx) ** 2 + (p[1] - my) ** 2; if (dd < bd) { bd = dd; best = p; } }
+      if (!best || bd > 900) { ring.style.display = "none"; hideTip(); return; }
+      ring.setAttribute("cx", best[0]); ring.setAttribute("cy", best[1]); ring.style.display = "";
+      showTip(e, d.name, [[null, "Precio real", money(best[2])], [null, "Precio predicho", money(best[3])],
+        [null, "Error", money(best[3] - best[2])]]);
+    });
+    overlay.addEventListener("mouseleave", () => { ring.style.display = "none"; hideTip(); });
+  }
+}
+
+// ---------- 5. Densidades en test ----------
+function renderDensity() {
+  legend(document.getElementById("legend-density"), [[S1, "Predicción del modelo en test"], [S2, "Pipeline de inferencia (ganador) en test"], [S3, "SalePrice real en train"]]);
+  const grid = document.getElementById("density-grid");
+  grid.innerHTML = "";
+  const gx = DATA.density_grid;
+  const maxY = Math.max(...M.flatMap(d => d.test_density), ...DATA.inference_density, ...DATA.train_density) * 1.05;
+  for (const d of M) {
+    const card = document.createElement("div");
+    card.className = "card" + (d.coherence.coherent ? "" : " discarded");
+    const st = d.test_stats;
+    card.innerHTML = `<div class="card-head"><h3>${d.name}</h3>${badge(d.coherence.coherent)}</div>
+      <p class="note">Mediana ${money(st.median)} · mín ${money(st.min)} · máx ${money(st.max)}${d.name === DATA.meta.winner
+        ? "<br>Es el modelo del pipeline de inferencia: su curva coincide con la naranja y la cubre." : ""}</p><div class="chart"></div>`;
+    grid.appendChild(card);
+    const box = card.querySelector(".chart");
+    const left = 12, right = 12, top = 8, plotH = 170, axisBand = 40;
+    const { svg, width } = newSvg(box, top + plotH + axisBand);
+    const x = scale(gx[0], gx[gx.length - 1], left, width - right), y = scale(0, maxY, top + plotH, top);
+    xAxis(svg, niceTicks(gx[0], gx[gx.length - 1], 4), x, top, top + plotH, kmoney, "Precio", width);
+    el("line", { x1: left, x2: width - right, y1: top + plotH, y2: top + plotH, style: { stroke: "var(--axis)", strokeWidth: 1 } }, svg);
+    const line = (ys, color) => el("path", {
+      d: ys.map((v, i) => `${i ? "L" : "M"}${x(gx[i]).toFixed(1)},${y(v).toFixed(1)}`).join(""),
+      style: { fill: "none", stroke: color, strokeWidth: 2, strokeLinejoin: "round" } }, svg);
+    line(DATA.train_density, S3);
+    line(DATA.inference_density, S2);
+    line(d.test_density, S1);
+    const cross = el("line", { y1: top, y2: top + plotH, style: { stroke: "var(--text-muted)", strokeWidth: 1, display: "none" } }, svg);
+    const overlay = el("rect", { x: left, y: top, width: width - left - right, height: plotH, style: { fill: "transparent" } }, svg);
+    overlay.addEventListener("mousemove", e => {
+      const b = svg.getBoundingClientRect(), mx = (e.clientX - b.left) * (width / b.width);
+      let i = 0, bd = Infinity;
+      gx.forEach((g, k) => { const dd = Math.abs(x(g) - mx); if (dd < bd) { bd = dd; i = k; } });
+      cross.setAttribute("x1", x(gx[i])); cross.setAttribute("x2", x(gx[i])); cross.style.display = "";
+      const s = v => (v * 1e6).toFixed(2);
+      showTip(e, `Precio ≈ ${money(gx[i])}`, [[S1, d.name, s(d.test_density[i])], [S2, "Inferencia (ganador)", s(DATA.inference_density[i])],
+        [S3, "Real en train", s(DATA.train_density[i])], [null, "Unidades", "densidad × 10⁻⁶"]]);
+    });
+    overlay.addEventListener("mouseleave", () => { cross.style.display = "none"; hideTip(); });
+  }
+}
+
+// ---------- 6. Reglas de coherencia ----------
+function renderRules() {
+  const r = DATA.meta.rules;
+  document.getElementById("rules-text").innerHTML =
+    `Un modelo es <b>coherente</b> si sus predicciones en test cumplen las tres reglas. Si falla alguna, se <b>descarta</b>. ` +
+    `(1) Sin valores vacíos ni precios ≤ 0. (2) Rango plausible: todas las predicciones entre ${money(r.min_allowed)} y ${money(r.max_allowed)} ` +
+    `(0.5 × mínimo y 1.5 × máximo de SalePrice en train). (3) Mediana cercana: la mediana predicha entre ${money(r.median_low)} y ${money(r.median_high)} ` +
+    `(± ${r.median_tolerance_pct} % de la mediana de train, ${money(DATA.meta.train_median)}). ` +
+    `Control adicional: las predicciones de ${DATA.meta.winner} re-entrenado deben coincidir con las del pipeline de inferencia guardado ` +
+    `(diferencia máxima: ${money(DATA.meta.inference_check_max_diff)}).`;
+  table(document.getElementById("table-rules"),
+    ["Modelo", "Sin vacíos ni ≤ 0", "Rango plausible", "Mediana cercana", "Mediana predicha", "Mín – máx predicho", "Resultado"],
+    M.map(d => [d.name, check(d.coherence.no_invalid), check(d.coherence.in_range), check(d.coherence.median_ok),
+      money(d.test_stats.median), `${money(d.test_stats.min)} – ${money(d.test_stats.max)}`, badge(d.coherence.coherent)]));
+}
+
+function renderAll() {
+  renderHeader(); renderRmse(); renderOverfit(); renderTraining(); renderScatter(); renderDensity(); renderRules();
+}
+renderAll();
+let resizeTimer;
+addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(renderAll, 150); });
+</script>
+</body>
+</html>
